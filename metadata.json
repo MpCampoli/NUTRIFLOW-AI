@@ -1,0 +1,7 @@
+{
+  "name": "NUTRIFLOW IA",
+  "description": "An intelligent application that calculates your caloric needs and generates a personalized diet plan based on your goals and food preferences, powered by Gemini. It also includes a helpful AI chatbot for your questions.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
