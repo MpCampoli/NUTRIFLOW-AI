@@ -10,6 +10,7 @@ export const generateDietPlan = async (
     macroTargets: MacroTargets,
     goal: string,
     plannerConfig: PlannerConfig,
+    bloodTestFile: { name: string; data: string; } | null,
     editedUserMeals: DietMeal[] | null = null
 ): Promise<DietPlan> => {
     if (!process.env.API_KEY) {
@@ -29,25 +30,45 @@ export const generateDietPlan = async (
     let mealInstructions = '';
     let plannerPrompt = '';
     let recalculationPrompt = '';
+    let bloodTestPrompt = '';
+
+    if (bloodTestFile) {
+        bloodTestPrompt = `
+**PRIORIDADE MÁXIMA - ANÁLISE DE EXAME E GERAÇÃO DA ANÁLISE CLÍNICA:**
+O usuário enviou um arquivo de exame de sangue. Sua tarefa é analisá-lo e, com base nele, gerar o conteúdo para o campo \`clinical_analysis\` do JSON de saída principal. Você é um assistente nutricional/analítico responsável por analisar o conteúdo extraído de um exame de sangue e gerar o campo "Observações Clínicas" e sugestões de fitoterápicos. Siga as regras estritas abaixo.
+
+**REGRAS GERAIS PARA ANÁLISE CLÍNICA**
+1.  **Observações:** Produza observações curtas (1–2 linhas) para cada achado relevante no exame (ex: LDL alto, vitamina D baixa). Cada observação deve explicar brevemente o que foi feito na dieta e por qual motivo.
+2.  **Fitoterápicos (Apenas como Sugestão):** Inclua fitoterápicos SOMENTE no campo \`suplementos\` dentro de \`clinical_analysis\` quando houver evidência científica razoável. Para cada item, retorne uma entrada estruturada com: nome, dose_sugerida (se houver suporte científico, senão \`null\`), unidade, objetivo, resumo da evidência, citação, e segurança: “Validar com médico antes do uso.” Para a Nattokinase, a \`dose_sugerida\` DEVE ser em 'UI' (Unidades Internacionais) e a \`unidade\` deve ser 'UI', baseada em dosagens estudadas (ex: 2000 UI).
+3.  **Segurança:** Sempre inclua em \`metadados.requer_validacao_clinica = true\`.
+4.  **Análise de Hematócrito:** Preste atenção especial ao valor do hematócrito no exame. Se estiver elevado, considere sugerir Nattokinase como um fitoterápico para auxiliar na saúde circulatória.
+`;
+    }
 
     if (editedUserMeals) {
         recalculationPrompt = `
-**PRIORIDADE MÁXIMA - RESTRIÇÕES DE RECÁLCULO DO USUÁRIO:**
-O usuário editou manualmente uma ou mais refeições. Você DEVE usar os seguintes alimentos para estas refeições. Você SÓ PODE ajustar as quantidades dos alimentos nas *outras* refeições (as que não estão listadas abaixo como editadas) para atingir as metas nutricionais gerais. NÃO adicione, remova ou altere os itens alimentares nas refeições editadas abaixo. Para alimentos adicionados manualmente pelo usuário (com a descrição 'Adicionado manualmente'), estime suas informações nutricionais para incluí-los no cálculo total.
+**PRIORIDADE MÁXIMA - RESTRIÇÕES DE RECÁLCULO:**
+Esta é uma solicitação de recálculo de uma dieta existente. O usuário pode ter ajustado o total de calorias ou editado uma refeição.
+Sua tarefa é gerar um novo plano, mas com uma regra fundamental: você DEVE OBRIGATORIAMENTE usar a lista de alimentos fornecida abaixo para cada refeição.
+NÃO adicione, remova ou substitua NENHUM alimento da lista a seguir. Sua única tarefa é AJUSTAR AS QUANTIDADES (em gramas) desses alimentos para atingir as novas metas nutricionais totais.
 
+**Lista de Alimentos Fixa (NÃO ALTERAR):**
 ${editedUserMeals.map(meal => `
-- **Refeição Editada: ${meal.meal_name}**
-  - Alimentos a Incluir OBRIGATORIAMENTE: [${meal.foods.map(f => f.name).join(', ')}]
+- **Refeição: ${meal.meal_name}**
+  - Alimentos a serem usados OBRIGATORIAMENTE: [${meal.foods.map(f => f.name).join(', ')}]
 `).join('')}
+
+Para alimentos com a descrição 'Adicionado manualmente', estime suas informações nutricionais para incluí-los no cálculo total.
 `;
     }
 
 
     if (plannerConfig.mode === 'manual') {
-        mealInstructions = plannerConfig.data.map(meal => {
+        mealInstructions = (plannerConfig.data as Meal[]).map(meal => {
+            const timeText = meal.time ? ` (Horário: ${meal.time})` : '';
             const customFoodsText = meal.customFoods.length > 0 ? `\n  - Alimentos Extras Adicionados pelo Usuário: [${meal.customFoods.join(', ')}] (Você DEVE incluir estes itens nesta refeição).` : '';
             return `
-- **Refeição: ${meal.name}**
+- **Refeição: ${meal.name}${timeText}**
   - Carboidratos Selecionados: [${meal.carbohydrates.join(', ')}]
   - Proteínas Selecionadas: [${meal.proteins.join(', ')}]
   - Gorduras Selecionadas: [${meal.fats.join(', ')}]
@@ -65,7 +86,7 @@ O usuário especificou as seguintes refeições e deseja incluir *apenas* os ali
 ${mealInstructions}
 `;
     } else { // AI mode
-         mealInstructions = plannerConfig.data.map(meal => {
+         mealInstructions = (plannerConfig.data as AiMealConfig[]).map(meal => {
             const timeText = meal.time ? ` (Horário Sugerido: ${meal.time})` : '';
             return `- **Refeição: ${meal.name}**${timeText}`;
         }).join('\n');
@@ -103,31 +124,29 @@ Você é uma IA nutricionista especialista. Sua tarefa é criar um plano de refe
 - Gênero: ${userData.gender === 'male' ? 'Masculino' : 'Feminino'}
 - Idade: ${userData.age} anos
 - Peso: ${userData.weight} kg
-- Meta de Calorias Diárias: ${Math.round(targetCalories)} kcal
 - Objetivo Principal: ${goal}
 
-**Metas de Macronutrientes (REGRAS NÃO NEGOCIÁVEIS - CÁLCULO PRECISO OBRIGATÓRIO):**
-Você DEVE seguir estas metas de macronutrientes com precisão matemática. Os totais diários no seu plano final DEVEM corresponder exatamente a estes valores.
-1.  **Proteína (Regra Estrita):** Gere a dieta para conter EXATAMENTE ${Math.round(proteinTarget)} gramas de proteína. Este valor é calculado a partir da regra de ${macroTargets.protein}g por kg de peso corporal do usuário e não pode ser alterado.
-2.  **Gordura (Regra Estrita):** Gere a dieta para conter EXATAMENTE ${Math.round(fatTarget)} gramas de gordura. Este valor é calculado a partir da regra de ${macroTargets.fat}g por kg de peso corporal do usuário e não pode ser alterado.
-3.  **Carboidratos (Cálculo de Preenchimento):** Calcule e use a quantidade EXATA de carboidratos (${Math.round(carbTarget)} gramas) necessária para atingir a meta calórica total de ${Math.round(targetCalories)} kcal, após as metas de proteína e gordura terem sido cumpridas.
+**Metas de Calorias e Macronutrientes (REGRAS NÃO NEGOCIÁVEIS - CÁLCULO PRECISO OBRIGATÓRIO):**
+Você DEVE seguir estas metas com precisão matemática. Os totais diários no seu plano final DEVEM corresponder exatamente a estes valores.
+1.  **Meta Calórica Total (Regra Estrita):** Gere a dieta para conter EXATAMENTE ${Math.round(targetCalories)} kcal.
+2.  **Proteína (Regra Estrita):** Gere a dieta para conter EXATAMENTE ${Math.round(proteinTarget)} gramas de proteína. Este valor é calculado a partir da regra de ${macroTargets.protein}g por kg de peso corporal do usuário e não pode ser alterado.
+3.  **Gordura (Regra Estrita):** Gere a dieta para conter EXATAMENTE ${Math.round(fatTarget)} gramas de gordura. Este valor é calculado a partir da regra de ${macroTargets.fat}g por kg de peso corporal do usuário e não pode ser alterado.
+4.  **Carboidratos (Cálculo de Preenchimento):** Calcule e use a quantidade EXATA de carboidratos (${Math.round(carbTarget)} gramas) necessária para atingir a meta calórica total, após as metas de proteína e gordura terem sido cumpridas.
+
+${bloodTestPrompt}
 
 ${recalculationPrompt}
 
 ${plannerPrompt}
 
 **Instruções Gerais de Geração:**
-1.  **Alimentos Extras (se houver):** Se o usuário adicionou alimentos extras (como doces ou itens não listados), primeiro pesquise e determine suas informações nutricionais (calorias e macros). Subtraia esses valores das metas diárias totais antes de calcular o resto.
-2.  **Cálculo da Dieta Principal:** Com as metas de macros e calorias restantes, calcule a quantidade precisa (em gramas) para *cada item alimentar* para atingir as novas metas. Distribua os macronutrientes de forma equilibrada entre as refeições.
-3.  **Medidas Práticas:** Para alimentos contáveis (ex: ovos, fatias de pão, frutas pequenas, castanhas), forneça uma descrição de unidade prática no campo \`unit_description\` (ex: '2 ovos inteiros' ou '1 fatia média' ou '5 unidades'). Para outros alimentos, este campo pode ser nulo. A quantidade em \`quantity_grams\` deve ser sempre o peso total.
-4.  **Cálculo Avançado de Suplementos:** Para qualquer item na categoria 'Suplementos', você DEVE pesquisar e determinar a dosagem clinicamente apropriada com base nos dados do usuário (peso, idade, sexo) e no objetivo da dieta. Use as seguintes diretrizes estritas:
-    - **Regra Geral:** Para estes itens, defina \`quantity_grams\` como 0. A dosagem completa DEVE ser colocada no campo \`unit_description\`. Não use o símbolo "g" para suplementos.
-    - **Multivitamínicos e Minerais:** A dosagem deve ser '1 cápsula' ou '2 cápsulas', com a concentração especificada se relevante (ex: '1 cápsula de 500mg'). Calcule com base nas Recomendações de Ingestão Diária (RDIs).
-    - **Vitaminas (D, C, etc.):** A dosagem deve ser em Unidades Internacionais (UI) ou miligramas (mg). Ex: '2000 UI' ou '500 mg'.
-    - **Ômega 3:** A dosagem deve ser em miligramas (mg). Ex: '1000 mg' ou '2000 mg'.
-    - **Fitoterápicos e Suplementos Específicos (Nattokinase, Creatina, etc.):** A dosagem deve usar a unidade apropriada, como Unidades Fibrinolíticas (FU), gramas (g) ou miligramas (mg), mas apresentada de forma clara. Ex: '100 FU', '5g', '400 mg'. Para creatina, especifique '5g'.
-    - **Suplementos de Proteína (Whey, Albumina):** Para estes, a quantidade em gramas é importante. Calcule o \`quantity_grams\` para atingir as metas de proteína e especifique a medida prática em \`unit_description\` (ex: '1 scoop de 30g').
-5.  **Recomendações:** No final, forneça 2-3 recomendações curtas e úteis no campo \`recommendations\` sobre hidratação, sono, ou outras dicas de saúde relevantes para o objetivo do usuário.
+1.  **Suplementos:** Suplementos listados pelo usuário (como Whey Protein, Creatina) devem ser tratados como alimentos normais e integrados diretamente nas refeições, contribuindo para os totais de macros. Fitoterápicos, por outro lado, são sugestões baseadas em exames e devem ir apenas no campo \`clinical_analysis\`.
+2.  **Medidas Práticas:** Para alimentos contáveis (ex: ovos, fatias de pão), forneça uma descrição de unidade prática no campo \`unit_description\` (ex: '2 ovos inteiros'). A quantidade em \`quantity_grams\` deve ser sempre o peso total.
+3.  **Dosagem de Suplementos:** Para suplementos, defina \`quantity_grams\` como a dosagem em gramas (ex: 30 para whey, 5 para creatina). Em \`unit_description\`, coloque a medida prática (ex: '1 scoop de 30g', '1 dose de 5g').
+4.  **Recomendações:** Forneça 3-4 recomendações úteis no campo \`recommendations\`. **Regra de Hidratação:** Calcule a ingestão hídrica ideal do usuário usando a regra de 50ml por kg de peso corporal e a ingestão mínima usando 30ml por kg. Inclua AMBOS os valores calculados em litros como recomendações separadas (ex: "Sua meta de hidratação ideal é de 3.5 litros..." e "Tente beber no mínimo 2.1 litros..."). **IMPORTANTE:** Se a dieta incluir suplementos, adicione uma recomendação explicando brevemente o motivo de sua inclusão (ex: "A Creatina foi adicionada para auxiliar na força e recuperação muscular.").
+5.  **Bebidas Zero Caloria:** Se o usuário adicionar ou você sugerir bebidas com calorias insignificantes (ex: café preto sem açúcar, chás sem açúcar, água com limão), liste-as na refeição com \`quantity_grams\` definido como 0 e \`unit_description\` como 'À vontade', e não as inclua nos cálculos de totais.
+6.  **Especificação sobre Ovos (REGRA CRÍTICA):** Quando usar "Ovos", sempre especifique a quantidade de "ovos inteiros" e/ou "claras". Por exemplo, em vez de apenas "Ovos - 150g", use uma descrição como "2 ovos inteiros e 3 claras". Isso é fundamental para o controle preciso de gordura e calorias, imitando a prática de um nutricionista.
+7.  **Combinação de Aveia:** Ao incluir 'Aveia em Flocos', crie uma refeição coesa combinando-a com alimentos que harmonizam bem, como 'Proteína de Whey', iogurtes ou frutas.
 
 **Formato de Saída:**
 Forneça sua resposta *apenas* no formato JSON especificado pelo esquema a seguir. Não inclua texto introdutório, explicações ou formatação de markdown fora da estrutura JSON.
@@ -162,7 +181,7 @@ Forneça sua resposta *apenas* no formato JSON especificado pelo esquema a segui
                                 properties: {
                                     name: { type: Type.STRING },
                                     quantity_grams: { type: Type.NUMBER },
-                                    unit_description: { type: Type.STRING, description: "Descrição prática da unidade (ex: '2 ovos', '1 fatia', '1 cápsula de 500mg', '2000 UI', '1000 mg', 'À vontade'). Para suplementos sem peso, a dosagem completa vai aqui." },
+                                    unit_description: { type: Type.STRING, description: "Descrição prática da unidade (ex: '2 ovos', '1 fatia', '1 scoop de 30g', 'À vontade')." },
                                 },
                                 required: ['name', 'quantity_grams'],
                             },
@@ -185,14 +204,68 @@ Forneça sua resposta *apenas* no formato JSON especificado pelo esquema a segui
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
             },
+            clinical_analysis: {
+                type: Type.OBJECT,
+                properties: {
+                    observacoes: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                    },
+                    suplementos: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                nome: { type: Type.STRING },
+                                dose_sugerida: {
+                                    type: Type.NUMBER,
+                                    description: "A dosagem numérica sugerida do fitoterápico. Se não houver evidência, este campo deve ser omitido ou nulo.",
+                                    nullable: true,
+                                },
+                                unidade: { type: Type.STRING },
+                                objetivo: { type: Type.STRING },
+                                resumo_evidencia: { type: Type.STRING },
+                                citacao: { type: Type.STRING },
+                                evidence_available: { type: Type.BOOLEAN },
+                                seguranca: { type: Type.STRING },
+                            },
+                            required: ['nome', 'unidade', 'objetivo', 'resumo_evidencia', 'citacao', 'evidence_available', 'seguranca']
+                        }
+                    },
+                    metadados: {
+                        type: Type.OBJECT,
+                        properties: {
+                            gerado_por: { type: Type.STRING },
+                            versao_prompt: { type: Type.STRING },
+                            requer_validacao_clinica: { type: Type.BOOLEAN },
+                        },
+                        required: ['gerado_por', 'versao_prompt', 'requer_validacao_clinica']
+                    }
+                },
+                required: ['observacoes', 'suplementos', 'metadados'],
+                description: "Análise clínica baseada no exame de sangue do usuário. Este campo deve conter apenas sugestões de FITOTERÁPICOS, não suplementos comuns como whey ou creatina."
+            },
         },
         required: ['id', 'createdAt', 'goal', 'daily_totals', 'meals', 'recommendations'],
     };
     
     try {
+        const contentParts: ( { text: string } | { inlineData: { data: string, mimeType: string } } )[] = [
+            { text: prompt },
+        ];
+
+        if (bloodTestFile) {
+            contentParts.push({
+                inlineData: {
+                    data: bloodTestFile.data.split(',')[1],
+                    mimeType: 'application/pdf',
+                },
+            });
+        }
+        
         const response = await ai.models.generateContent({
             model: model,
-            contents: prompt,
+            contents: { parts: contentParts },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: dietPlanSchema,

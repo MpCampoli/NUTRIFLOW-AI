@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { UserData, User } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserData } from '../types';
 import { activityLevels } from '../constants';
+import { Paperclip, FileText, X } from './icons/FormIcons';
 
 type Goal = 'Emagrecer' | 'Manter Peso' | 'Ganhar Massa';
 type GoalKey = 'deficit' | 'maintain' | 'surplus';
@@ -12,9 +13,11 @@ const goalMap = new Map<GoalKey, Goal>([
 ]);
 
 interface Props {
-  currentUser: User;
   onGoToMacroConfig: (data: UserData, targetCalories: number, goal: Goal) => void;
   onPlanDietDirectly: (data: UserData, targetCalories: number, goal: Goal) => void;
+  bloodTestFile: { name: string; data: string; } | null;
+  onFileUpload: (file: { name: string; data: string; }) => void;
+  onFileRemove: () => void;
 }
 
 const GoalCard: React.FC<{title: string; description: string; calories: number; onClick: () => void, selected: boolean}> = ({title, description, calories, onClick, selected}) => (
@@ -25,8 +28,7 @@ const GoalCard: React.FC<{title: string; description: string; calories: number; 
     </div>
 )
 
-
-const Step1UserInfo: React.FC<Props> = ({ currentUser, onGoToMacroConfig, onPlanDietDirectly }) => {
+const Step1UserInfo: React.FC<Props> = ({ onGoToMacroConfig, onPlanDietDirectly, bloodTestFile, onFileUpload, onFileRemove }) => {
   const [formData, setFormData] = useState({
     name: '',
     gender: 'male',
@@ -40,12 +42,7 @@ const Step1UserInfo: React.FC<Props> = ({ currentUser, onGoToMacroConfig, onPlan
 
   const [adjustment, setAdjustment] = useState<number>(300);
   const [goal, setGoal] = useState<GoalKey | null>(null);
-
-  useEffect(() => {
-    if (currentUser) {
-      setFormData(prev => ({ ...prev, name: currentUser.fullName }));
-    }
-  }, [currentUser]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,8 +50,30 @@ const Step1UserInfo: React.FC<Props> = ({ currentUser, onGoToMacroConfig, onPlan
     setGoal(null);
   };
   
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+        alert('Por favor, selecione um arquivo PDF.');
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert('O arquivo é muito grande. O limite é de 10MB.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        onFileUpload({ name: file.name, data: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset file input to allow re-uploading the same file
+    event.target.value = '';
+  };
+
   const calculateTdee = () => {
-    // FIX: Destructure `name` from `formData` to correctly validate all fields.
     const { name, gender, weight, height, age, activityLevel } = formData;
      if (!weight || !height || !age || !name) {
         setError('Por favor, preencha todos os campos.');
@@ -150,19 +169,49 @@ const Step1UserInfo: React.FC<Props> = ({ currentUser, onGoToMacroConfig, onPlan
             ))}
           </select>
         </div>
+        
+        <div className="pt-4 border-t border-slate-700">
+            <h3 className="text-lg font-semibold text-slate-200 mb-3">Análise Inteligente (Opcional)</h3>
+             <p className="text-sm text-slate-400 mb-4">Para uma dieta ainda mais personalizada, anexe seu último exame de sangue em PDF. A IA irá analisá-lo para otimizar suas recomendações.</p>
+            <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="application/pdf" />
+
+            {bloodTestFile ? (
+                <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                        <FileText className="w-5 h-5 text-green-400" />
+                        <span className="text-sm font-medium text-slate-200 truncate">{bloodTestFile.name}</span>
+                    </div>
+                    <button onClick={onFileRemove} className="p-1 text-slate-400 hover:text-white rounded-full hover:bg-slate-600">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-600 hover:border-cyan-500 text-slate-400 hover:text-cyan-400 font-semibold py-3 px-4 rounded-lg transition-all"
+                >
+                    <Paperclip className="w-5 h-5" />
+                    Anexar Exame de Sangue (PDF)
+                </button>
+            )}
+        </div>
 
         {error && <p className="text-red-400 text-sm text-center">{error}</p>}
         
-        {!tdee && <button type="button" onClick={calculateTdee} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105">
-          Calcular Gasto Calórico e Definir Meta
-        </button>}
+        {!tdee && (
+            <button type="button" onClick={calculateTdee} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105">
+              Calcular Gasto Calórico e Definir Meta
+            </button>
+        )}
       </div>
       
       {tdee && (
         <div className="mt-8 pt-6 border-t border-slate-700 animate-fade-in">
              <div className="text-center">
                 <h2 className="text-2xl font-bold text-cyan-400 mb-2 pt-8">Seu Gasto Calórico Diário</h2>
-                <p className="text-5xl font-bold text-white mb-4">{Math.round(tdee)} <span className="text-2xl font-medium text-slate-400">kcal</span></p>
+                <p className="text-5xl font-bold text-white mb-1">{Math.round(tdee)} <span className="text-2xl font-medium text-slate-400">kcal</span></p>
+                <p className="text-xs text-slate-500 mb-4">Cálculo baseado na fórmula de Harris-Benedict para máxima precisão.</p>
                 <p className="text-slate-400 mb-8">Este é o número de calorias que seu corpo queima por dia. Agora, escolha seu objetivo.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

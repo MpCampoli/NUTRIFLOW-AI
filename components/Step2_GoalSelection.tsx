@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from './icons/ArrowLeft';
 import { UserData, MacroTargets } from '../types';
@@ -11,11 +13,9 @@ interface Props {
   onBack: () => void;
 }
 
-// FIX: Add 'carbs' to defaultTargets to match the MacroTargets type.
-// The value is a placeholder as it's dynamically calculated elsewhere.
 export const defaultTargets: MacroTargets = {
     protein: 2.0,
-    carbs: 0,
+    carbs: 0, 
     fat: 0.8,
 };
 

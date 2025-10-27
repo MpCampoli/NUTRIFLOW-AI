@@ -1,15 +1,3 @@
-export interface User {
-  id: string;
-  email: string;
-  passwordHash: string; 
-  fullName: string;
-  cpf?: string;
-  address?: string;
-  birthDate?: string;
-  gender?: 'male' | 'female' | 'other' | '';
-  profilePicture?: string | null;
-  biometricsEnabled?: boolean;
-}
 
 export interface UserData {
   name: string;
@@ -29,6 +17,7 @@ export interface MacroTargets {
 export interface Meal {
   id: string;
   name: string;
+  time: string; // Adicionado para consistência e notificações
   carbohydrates: string[];
   proteins: string[];
   fats: string[];
@@ -61,6 +50,27 @@ export interface DietMeal {
   };
 }
 
+export interface ClinicalSupplement {
+  nome: string;
+  dose_sugerida: number | null;
+  unidade: string;
+  objetivo: string;
+  resumo_evidencia: string;
+  citacao: string;
+  evidence_available: boolean;
+  seguranca: string;
+}
+
+export interface ClinicalAnalysis {
+  observacoes: string[];
+  suplementos: ClinicalSupplement[];
+  metadados: {
+    gerado_por: string;
+    versao_prompt: string;
+    requer_validacao_clinica: boolean;
+  };
+}
+
 export interface DietPlan {
   id: string;
   createdAt: string;
@@ -73,9 +83,80 @@ export interface DietPlan {
   };
   meals: DietMeal[];
   recommendations: string[];
+  clinical_analysis?: ClinicalAnalysis; // Campo para análise do exame de sangue
   // Fields for recalculation
   userData: UserData;
   originalMeals: Meal[] | AiMealConfig[]; // Can be either type now
   macroTargets: MacroTargets;
   plannerMode: 'manual' | 'ai';
+}
+
+// User type simplified for local storage authentication
+export interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  password?: string; // Stored locally for internal recognition
+  // Optional fields from UserProfile
+  profilePicture?: string;
+  cpf?: string;
+  address?: string;
+  birthDate?: string;
+  gender?: 'male' | 'female' | 'other' | '';
+  phoneNumber?: string;
+  weight?: number;
+  height?: number;
+  goals?: string;
+  biometricsEnabled?: boolean;
+  // Fix: Added fields for admin panel and user file purchases
+  status?: 'active' | 'suspended' | 'pending_confirmation';
+  paymentStatus?: 'paid' | 'unpaid';
+  role?: 'user' | 'admin';
+  purchasedFileIds?: string[];
+}
+
+// Fix: Added FinancialRecord interface
+export interface FinancialRecord {
+  id: string;
+  userName: string;
+  userEmail: string;
+  amount: number;
+  date: string; // ISO string format YYYY-MM-DD
+  status: 'Aprovado' | 'Pendente' | 'Falhou';
+  notes?: string;
+}
+
+// Fix: Added EbookFile interface
+export interface EbookFile {
+  id: string;
+  createdAt: string; // ISO string format
+  title: string;
+  description: string;
+  coverImage: string; // base64 data URL
+  fileData: string; // base64 data URL
+  fileName: string;
+  fileType: string; // mime type
+  isPaid: boolean;
+  price?: number;
+  status: 'active' | 'inactive';
+}
+
+export interface NotificationSettings {
+  mealReminderSettings: {
+    [mealName: string]: {
+      enabled: boolean;
+      offset: number; // minutes
+    };
+  };
+  hydrationReminders: boolean;
+  hydrationFrequency: number; // minutes
+}
+
+export interface ProgressEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  weight: number;
+  waist?: number;
+  hips?: number;
+  notes?: string;
 }

@@ -1,362 +1,602 @@
-
-import React, { useState, useEffect } from 'react';
-import { UserData, Meal, DietPlan, MacroTargets, User, AiMealConfig } from './types';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserData, Meal, DietPlan, MacroTargets, AiMealConfig, User, NotificationSettings, ProgressEntry } from './types';
 import Step1UserInfo from './components/Step1_UserInfo';
 import Step2MacroConfig, { defaultTargets } from './components/Step2_GoalSelection';
 import Step3MealPlanner from './components/Step3_MealPlanner';
 import Step4DietResult from './components/Step4_DietResult';
 import SavedDiets from './components/SavedDiets';
-import UserProfile from './components/UserProfile';
 import ChatBot from './components/ChatBot';
-import { BrainCircuit } from './components/icons/BrainCircuit';
-import { Archive } from './components/icons/Archive';
-import { NotificationIcon, ProfileIcon } from './components/icons/AppBarIcons';
 import Login from './components/Login';
 import Register from './components/Register';
-import PasswordRecovery from './components/PasswordRecovery';
-import { FingerprintIcon } from './components/icons/AuthIcons';
+import UserProfile from './components/UserProfile';
+import NotificationSettingsComponent from './components/NotificationSettings';
+import UserFiles from './components/UserFiles';
+import ProgressDiary from './components/ProgressDiary';
+import AdminPanel from './components/admin/AdminPanel';
 
-const BiometricAuthScreen: React.FC = () => (
-  <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center">
-    <div className="animate-pulse">
-      <FingerprintIcon className="w-20 h-20 text-cyan-400 mx-auto" />
-      <p className="text-xl text-slate-300 mt-4">Autenticando...</p>
-    </div>
-  </div>
-);
+import { BrainCircuit } from './components/icons/BrainCircuit';
+import { Archive } from './components/icons/Archive';
+import { ProfileIcon, NotificationIcon, BookOpen, TrendingUpIcon, ShieldCheck } from './components/icons/AppBarIcons';
+
+type AuthView = 'login' | 'register';
+type AppView = 'dietCreator' | 'savedDiets' | 'progressDiary' | 'profile' | 'notificationSettings' | 'ebooks' | 'adminPanel';
+type Goal = 'Emagrecer' | 'Manter Peso' | 'Ganhar Massa';
+type PlannerMode = 'manual' | 'ai';
 
 const App: React.FC = () => {
-  type Step = 'userInfo' | 'macroConfig' | 'planner' | 'result' | 'savedDietsView' | 'userProfile';
-  type Goal = 'Emagrecer' | 'Manter Peso' | 'Ganhar Massa';
-  type AuthView = 'login' | 'register' | 'recovery';
-  type PlannerMode = 'manual' | 'ai';
-  
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authView, setAuthView] = useState<AuthView>('login');
-  const [isAuthenticatingBiometric, setIsAuthenticatingBiometric] = useState(true);
+    // AUTHENTICATION STATE (Local)
+    const [authView, setAuthView] = useState<AuthView>('login');
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+    // APP VIEW STATE
+    const [appView, setAppView] = useState<AppView>('dietCreator');
 
-  const [step, setStep] = useState<Step>('userInfo');
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [targetCalories, setTargetCalories] = useState<number>(0);
-  const [goal, setGoal] = useState<Goal | null>(null);
-  const [macroTargets, setMacroTargets] = useState<MacroTargets | null>(null);
-  
-  const [plannerMode, setPlannerMode] = useState<PlannerMode>('manual');
-  const [meals, setMeals] = useState<Meal[]>([]); // For manual mode
-  const [aiMealConfig, setAiMealConfig] = useState<AiMealConfig[]>([]); // For AI mode
+    // DIET CREATION STATE
+    const [step, setStep] = useState<'userInfo' | 'macroConfig' | 'planner' | 'result'>('userInfo');
+    const [userDataForm, setUserDataForm] = useState<UserData | null>(null);
+    const [targetCalories, setTargetCalories] = useState<number>(0);
+    const [goal, setGoal] = useState<Goal | null>(null);
+    const [macroTargets, setMacroTargets] = useState<MacroTargets | null>(null);
+    const [plannerMode, setPlannerMode] = useState<PlannerMode>('manual');
+    const [meals, setMeals] = useState<Meal[]>([]);
+    const [aiMealConfig, setAiMealConfig] = useState<AiMealConfig[]>([]);
+    const [bloodTestFile, setBloodTestFile] = useState<{ name: string; data: string; } | null>(null);
+    const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
 
-  const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
-  const [savedDiets, setSavedDiets] = useState<DietPlan[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+    // LOCAL DATA STATE (from localStorage)
+    const [savedDiets, setSavedDiets] = useState<DietPlan[]>([]);
+    const [progressHistory, setProgressHistory] = useState<ProgressEntry[]>([]);
+    
+    // NOTIFICATION STATE
+    const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+        mealReminderSettings: {},
+        hydrationReminders: false,
+        hydrationFrequency: 60, // in minutes
+    });
+    // Fix: Replaced NodeJS.Timeout with number for browser compatibility.
+    const mealTimeouts = useRef<number[]>([]);
+    // Fix: Replaced NodeJS.Timeout with number for browser compatibility.
+    const hydrationInterval = useRef<number | null>(null);
 
-  useEffect(() => {
-    // Check for active session or remembered user with biometrics
-    try {
-      const sessionEmail = localStorage.getItem('nutriflow_session');
-      if (sessionEmail) {
-        const users: User[] = JSON.parse(localStorage.getItem('nutriflow_users') || '[]');
-        const user = users.find(u => u.email === sessionEmail);
-        if (user) {
-          setCurrentUser(user);
-        }
-        setIsAuthenticatingBiometric(false);
-        return;
-      }
-      
-      const rememberedEmail = localStorage.getItem('nutriflow_remembered_user');
-      if (rememberedEmail) {
-          const users: User[] = JSON.parse(localStorage.getItem('nutriflow_users') || '[]');
-          const user = users.find(u => u.email === rememberedEmail);
-          if (user?.biometricsEnabled) {
-              // Start biometric simulation
-              setTimeout(() => {
-                  handleLogin(user); // Log the user in
-                  setIsAuthenticatingBiometric(false);
-              }, 1500); // Simulate 1.5s scan
-              return; // Keep showing the auth screen
-          }
-      }
-      // If no session and no biometric user, stop loading and show login page
-      setIsAuthenticatingBiometric(false);
+    // --- ENSURE ADMIN USER INTEGRITY ON EVERY LOAD ---
+    useEffect(() => {
+        try {
+            const adminEmail = 'altamiro9@hotmail.com';
+            const adminPassword = 'Miraum19'; // User-defined password
+            const storedUsersRaw = localStorage.getItem('nutriflow_users');
+            let users: User[] = storedUsersRaw ? JSON.parse(storedUsersRaw) : [];
+            let needsUpdate = false;
 
-    } catch (err) {
-      console.error("Failed to load session:", err);
-      setCurrentUser(null);
-      localStorage.removeItem('nutriflow_session');
-      localStorage.removeItem('nutriflow_remembered_user');
-      setIsAuthenticatingBiometric(false);
-    }
-  }, []);
+            const adminIndex = users.findIndex(u => u.email.toLowerCase() === adminEmail.toLowerCase());
 
-  useEffect(() => {
-    if (currentUser) {
-      try {
-        const storedDiets = localStorage.getItem(`nutriflow_saved_diets_${currentUser.id}`);
-        if (storedDiets) {
-          setSavedDiets(JSON.parse(storedDiets));
-        } else {
-          setSavedDiets([]);
-        }
-      } catch (err) {
-        console.error("Failed to load saved diets:", err);
-        setSavedDiets([]);
-      }
-    }
-  }, [currentUser]);
-
-  // FIX: Define the handleReset function to clear diet-related state.
-  const handleReset = () => {
-    setStep('userInfo');
-    setUserData(null);
-    setTargetCalories(0);
-    setGoal(null);
-    setMacroTargets(null);
-    setPlannerMode('manual');
-    setMeals([]);
-    setAiMealConfig([]);
-    setDietPlan(null);
-    setIsLoading(false);
-    setError(null);
-  };
-
-  const persistSavedDiets = (diets: DietPlan[]) => {
-    if (currentUser) {
-      try {
-        localStorage.setItem(`nutriflow_saved_diets_${currentUser.id}`, JSON.stringify(diets));
-      } catch (err) {
-        console.error("Failed to save diets:", err);
-      }
-    }
-  }
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem('nutriflow_session', user.email);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('nutriflow_session');
-    // We don't remove `nutriflow_remembered_user` on logout
-    setAuthView('login');
-    handleReset(); // Clear diet-related state
-  };
-
-  const handleUpdateProfile = (updatedData: Partial<User>) => {
-    if (!currentUser) return;
-
-    const updatedUser = { ...currentUser, ...updatedData };
-    setCurrentUser(updatedUser);
-
-    try {
-      const users: User[] = JSON.parse(localStorage.getItem('nutriflow_users') || '[]');
-      const userIndex = users.findIndex(u => u.id === currentUser.id);
-      if (userIndex > -1) {
-        users[userIndex] = updatedUser;
-        localStorage.setItem('nutriflow_users', JSON.stringify(users));
-      }
-    } catch (err) {
-      console.error("Failed to update profile:", err);
-    }
-  };
-
-  const handleGoToMacroConfig = (data: UserData, calories: number, selectedGoal: Goal) => {
-    setUserData(data);
-    setTargetCalories(calories);
-    setGoal(selectedGoal);
-    setStep('macroConfig');
-  };
-
-  const handlePlanDietDirectly = (data: UserData, calories: number, selectedGoal: Goal) => {
-    setUserData(data);
-    setTargetCalories(calories);
-    setGoal(selectedGoal);
-    setMacroTargets(defaultTargets); // Use default targets
-    setPlannerMode('ai'); // Default to AI mode for direct planning
-    setAiMealConfig([]); // Reset AI meal config
-    setMeals([]); // Reset manual meal config
-    setDietPlan(null); // Clear any previous diet plan
-    setStep('planner');
-  };
-
-  const handleGoToPlanner = (targets: MacroTargets) => {
-    setMacroTargets(targets);
-    setStep('planner');
-  };
-
-  const handleGenerateDiet = (plannerConfig: { mode: 'manual', data: Meal[] } | { mode: 'ai', data: AiMealConfig[] }) => {
-    if (plannerConfig.mode === 'manual') {
-      setPlannerMode('manual');
-      setMeals(plannerConfig.data);
-      setAiMealConfig([]);
-    } else {
-      setPlannerMode('ai');
-      setAiMealConfig(plannerConfig.data);
-      setMeals([]);
-    }
-    setDietPlan(null); // Clear previous plan to trigger regeneration
-    setStep('result');
-  };
-  
-  const handleSaveDiet = (plan: DietPlan) => {
-    const isAlreadySaved = savedDiets.some(d => d.id === plan.id);
-    let newDiets;
-    if (isAlreadySaved) {
-      // Update existing diet
-      newDiets = savedDiets.map(d => d.id === plan.id ? plan : d);
-    } else {
-      // Add new diet
-      newDiets = [...savedDiets, plan];
-    }
-    setSavedDiets(newDiets);
-    persistSavedDiets(newDiets);
-  };
-
-  const handleDeleteDiet = (id: string) => {
-    const newDiets = savedDiets.filter(d => d.id !== id);
-    setSavedDiets(newDiets);
-    persistSavedDiets(newDiets);
-  };
-
-  const handleUpdateDiet = (updatedPlan: DietPlan) => {
-    const newDiets = savedDiets.map(d => d.id === updatedPlan.id ? updatedPlan : d);
-    setSavedDiets(newDiets);
-    persistSavedDiets(newDiets);
-  }
-
-  const handleAddDiet = (newPlan: DietPlan) => {
-    const newDiets = [...savedDiets, newPlan];
-    setSavedDiets(newDiets);
-    persistSavedDiets(newDiets);
-  }
-
-  const renderAuth = () => {
-    if(isAuthenticatingBiometric) return <BiometricAuthScreen />;
-
-    switch (authView) {
-      case 'register':
-        return <Register onRegisterSuccess={() => setAuthView('login')} onNavigateToLogin={() => setAuthView('login')} />;
-      case 'recovery':
-        return <PasswordRecovery onNavigateToLogin={() => setAuthView('login')} />;
-      case 'login':
-      default:
-        return <Login onLoginSuccess={handleLogin} onNavigateToRegister={() => setAuthView('register')} onNavigateToRecovery={() => setAuthView('recovery')} />;
-    }
-  };
-
-
-  const renderContent = () => {
-    switch (step) {
-      case 'userInfo':
-        return <Step1UserInfo currentUser={currentUser!} onGoToMacroConfig={handleGoToMacroConfig} onPlanDietDirectly={handlePlanDietDirectly}/>;
-      case 'macroConfig':
-        if (!userData || !goal) return null; // Should not happen
-        return <Step2MacroConfig userData={userData} targetCalories={targetCalories} onNext={handleGoToPlanner} onBack={() => setStep('userInfo')} />;
-      case 'planner':
-        return <Step3MealPlanner 
-                  onNext={handleGenerateDiet} 
-                  onBack={() => setStep('macroConfig')} 
-                  initialMeals={meals}
-                  initialAiMeals={aiMealConfig}
-                  initialMode={plannerMode}
-                />;
-      case 'result':
-        if (!userData || !macroTargets || !goal) return null; // Should not happen
-        return (
-          <Step4DietResult
-            userData={userData}
-            targetCalories={targetCalories}
-            goal={goal}
-            macroTargets={macroTargets}
-            plannerConfig={plannerMode === 'manual' ? { mode: 'manual', data: meals } : { mode: 'ai', data: aiMealConfig }}
-            dietPlan={dietPlan}
-            setDietPlan={setDietPlan}
-            isLoading={isLoading}
-            setIsLoading={setIsLoading}
-            error={error}
-            setError={setError}
-            onReset={handleReset}
-            onBack={() => {
-                if(dietPlan?.plannerMode) { // If we have a plan, we can go back to the planner
-                    setPlannerMode(dietPlan.plannerMode);
-                    if(dietPlan.plannerMode === 'manual') setMeals(dietPlan.originalMeals as Meal[]);
-                    else setAiMealConfig(dietPlan.originalMeals as AiMealConfig[]);
+            if (adminIndex > -1) {
+                // Admin exists, check and correct role and password
+                const adminUser = users[adminIndex];
+                if (adminUser.role !== 'admin' || adminUser.password !== adminPassword) {
+                    users[adminIndex] = {
+                        ...adminUser,
+                        role: 'admin',
+                        password: adminPassword,
+                        status: 'active',
+                        paymentStatus: 'paid',
+                    };
+                    needsUpdate = true;
+                    console.log('Admin user account corrected (role/password).');
                 }
-                setStep('planner');
-            }}
-            onSaveDiet={handleSaveDiet}
-            savedDietIds={savedDiets.map(d => d.id)}
-          />
-        );
-      case 'savedDietsView':
-        return <SavedDiets 
-                  diets={savedDiets} 
-                  onDelete={handleDeleteDiet}
-                  onUpdateDiet={handleUpdateDiet}
-                  onAddDiet={handleAddDiet} 
-                  onBack={handleReset} 
-                />;
-      case 'userProfile':
-        return <UserProfile 
-                  user={currentUser!} 
-                  onBack={handleReset} 
-                  onSave={handleUpdateProfile} 
-                  onLogout={handleLogout}
-                />;
-    }
-  };
+            } else {
+                // Admin does not exist, create it with the correct credentials
+                const adminUser: User = {
+                    id: 'admin_master_001',
+                    fullName: 'Administrador Master',
+                    email: adminEmail,
+                    password: adminPassword,
+                    role: 'admin',
+                    status: 'active',
+                    paymentStatus: 'paid',
+                    purchasedFileIds: [],
+                };
+                users.push(adminUser);
+                needsUpdate = true;
+                console.log('Admin user created successfully.');
+            }
 
-  return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col">
-      {currentUser ? (
-        <>
-          <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10">
-            <nav className="container mx-auto px-4 py-3 flex justify-between items-center">
-              <button onClick={handleReset} className="flex items-center gap-2 text-xl font-bold text-cyan-400 hover:opacity-80 transition-opacity">
-                <BrainCircuit className="w-7 h-7" />
-                <span>NutriFlow AI</span>
-              </button>
-              <div className="flex items-center gap-4">
-                <button onClick={() => setStep('savedDietsView')} className="text-slate-400 hover:text-cyan-400 transition-colors p-2 rounded-full hover:bg-slate-700" title="Dietas Salvas">
-                  <Archive className="w-6 h-6" />
-                </button>
-                 <button className="text-slate-400 hover:text-cyan-400 transition-colors p-2 rounded-full hover:bg-slate-700" title="Notificações">
-                   <div className="relative">
-                    <NotificationIcon className="w-6 h-6" />
-                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-slate-800"></span>
-                   </div>
-                </button>
-                 <button onClick={() => setStep('userProfile')} className="p-1.5 rounded-full hover:bg-slate-700 transition-colors" title="Meu Perfil">
-                  {currentUser.profilePicture ? (
-                    <img src={currentUser.profilePicture} alt="Perfil" className="w-8 h-8 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
-                      <ProfileIcon className="w-5 h-5 text-slate-400" />
+            if (needsUpdate) {
+                localStorage.setItem('nutriflow_users', JSON.stringify(users));
+            }
+        } catch (e) {
+            console.error("Failed to ensure admin user integrity:", e);
+        }
+    }, []); // Runs only once on component mount
+
+    // --- LOCAL AUTHENTICATION & USER DATA ---
+    useEffect(() => {
+        try {
+            const loggedInUser = sessionStorage.getItem('nutriflow_currentUser');
+            if (loggedInUser) {
+                const user = JSON.parse(loggedInUser) as User;
+                setCurrentUser(user);
+                loadSavedDietsFromLocal(user.id);
+                loadNotificationSettingsFromLocal(user.id);
+                loadProgressHistoryFromLocal(user.id);
+            }
+        } catch (e) {
+            console.error("Failed to load user from session storage", e);
+        }
+    }, []);
+
+    const handleLogin = (email: string, password: string): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            const storedUsers = JSON.parse(localStorage.getItem('nutriflow_users') || '[]') as User[];
+            const foundUser = storedUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+            if (foundUser) {
+                setCurrentUser(foundUser);
+                loadSavedDietsFromLocal(foundUser.id);
+                loadNotificationSettingsFromLocal(foundUser.id);
+                loadProgressHistoryFromLocal(foundUser.id);
+                sessionStorage.setItem('nutriflow_currentUser', JSON.stringify(foundUser));
+                resolve();
+            } else {
+                reject(new Error('E-mail ou senha inválidos.'));
+            }
+        });
+    };
+
+    const handleRegister = (fullName: string, email: string, password: string): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            const storedUsers = JSON.parse(localStorage.getItem('nutriflow_users') || '[]') as User[];
+            if (storedUsers.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+                return reject(new Error('Este e-mail já está cadastrado.'));
+            }
+            const newUser: User = {
+                id: Date.now().toString(),
+                fullName,
+                email,
+                password,
+            };
+            const updatedUsers = [...storedUsers, newUser];
+            localStorage.setItem('nutriflow_users', JSON.stringify(updatedUsers));
+            resolve();
+        });
+    };
+
+    const handleLogout = () => {
+        clearAllNotifications();
+        setCurrentUser(null);
+        sessionStorage.removeItem('nutriflow_currentUser');
+        setAppView('dietCreator');
+        handleResetDietCreator();
+    };
+
+    const handleSaveProfile = (updatedData: Partial<User>) => {
+        if (!currentUser) return;
+        const updatedUser = { ...currentUser, ...updatedData };
+        setCurrentUser(updatedUser);
+        sessionStorage.setItem('nutriflow_currentUser', JSON.stringify(updatedUser));
+        const storedUsers = JSON.parse(localStorage.getItem('nutriflow_users') || '[]') as User[];
+        const userIndex = storedUsers.findIndex(u => u.id === currentUser.id);
+        if (userIndex > -1) {
+            storedUsers[userIndex] = updatedUser;
+            localStorage.setItem('nutriflow_users', JSON.stringify(storedUsers));
+        }
+    };
+    
+    // --- LOCALSTORAGE DATA PERSISTENCE ---
+    const getStorageKey = (userId: string, type: 'diets' | 'notifications' | 'progress') => `nutriflow_${type}_${userId}`;
+
+    const loadSavedDietsFromLocal = (userId: string) => {
+        try {
+            const localData = localStorage.getItem(getStorageKey(userId, 'diets'));
+            setSavedDiets(localData ? JSON.parse(localData) : []);
+        } catch (error) { console.error("Failed to load diets", error); setSavedDiets([]); }
+    };
+    
+    const loadNotificationSettingsFromLocal = (userId: string) => {
+        try {
+            const localData = localStorage.getItem(getStorageKey(userId, 'notifications'));
+            if (localData) {
+                const settings = JSON.parse(localData);
+                // Ensure new fields have default values
+                const defaultSettings = {
+                    mealReminderSettings: {},
+                    hydrationReminders: false,
+                    hydrationFrequency: 60,
+                };
+                setNotificationSettings(prev => ({...defaultSettings, ...prev, ...settings}));
+            }
+        } catch (error) { console.error("Failed to load notification settings", error); }
+    };
+    
+    const loadProgressHistoryFromLocal = (userId: string) => {
+        try {
+            const localData = localStorage.getItem(getStorageKey(userId, 'progress'));
+            setProgressHistory(localData ? JSON.parse(localData) : []);
+        } catch (error) { console.error("Failed to load progress history", error); setProgressHistory([]); }
+    };
+
+    useEffect(() => {
+        if (currentUser) {
+            localStorage.setItem(getStorageKey(currentUser.id, 'diets'), JSON.stringify(savedDiets));
+        }
+    }, [savedDiets, currentUser]);
+    
+    useEffect(() => {
+        if (currentUser) {
+            localStorage.setItem(getStorageKey(currentUser.id, 'notifications'), JSON.stringify(notificationSettings));
+            // Re-schedule notifications if settings change. This works because `dietPlan` state is now complete.
+            scheduleNotifications(dietPlan);
+        }
+    }, [notificationSettings, currentUser, dietPlan]);
+
+    useEffect(() => {
+        if (currentUser) {
+            localStorage.setItem(getStorageKey(currentUser.id, 'progress'), JSON.stringify(progressHistory));
+        }
+    }, [progressHistory, currentUser]);
+
+    // --- NOTIFICATION LOGIC ---
+    const showNotification = (title: string, body: string) => {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(title, { body, icon: '/logo.png' });
+        }
+    };
+
+    const clearAllNotifications = () => {
+        mealTimeouts.current.forEach(clearTimeout);
+        mealTimeouts.current = [];
+        if (hydrationInterval.current) {
+            clearInterval(hydrationInterval.current);
+            hydrationInterval.current = null;
+        }
+    };
+
+    const scheduleNotifications = (plan: DietPlan | null) => {
+        clearAllNotifications();
+        if (!plan || !plan.meals || !plan.originalMeals || !notificationSettings.mealReminderSettings) return;
+    
+        // Unified logic for both manual and AI plans
+        plan.meals.forEach(meal => {
+            const mealName = meal.meal_name;
+            const reminderSetting = notificationSettings.mealReminderSettings[mealName];
+    
+            if (reminderSetting && reminderSetting.enabled) {
+                let mealTimeStr: string | undefined;
+                if (plan.plannerMode === 'ai') {
+                    mealTimeStr = (plan.originalMeals as AiMealConfig[]).find(m => m.name === mealName)?.time;
+                } else { // 'manual'
+                    mealTimeStr = (plan.originalMeals as Meal[]).find(m => m.name === mealName)?.time;
+                }
+                
+                if (mealTimeStr) {
+                    const [hours, minutes] = mealTimeStr.split(':').map(Number);
+                    if (isNaN(hours) || isNaN(minutes)) return; // Invalid time format
+    
+                    const now = new Date();
+                    const mealTime = new Date();
+                    mealTime.setHours(hours, minutes, 0, 0);
+    
+                    // If meal time has already passed for today, schedule it for tomorrow
+                    if (mealTime.getTime() < now.getTime()) {
+                        mealTime.setDate(mealTime.getDate() + 1);
+                    }
+    
+                    const offsetMillis = reminderSetting.offset * 60 * 1000;
+                    const scheduledTime = mealTime.getTime() - offsetMillis;
+                    const delay = scheduledTime - now.getTime();
+    
+                    if (delay > 0) {
+                        const timeoutId = setTimeout(() => {
+                            showNotification(`Hora da Refeição!`, `É hora de comer seu/sua ${meal.meal_name}.`);
+                        }, delay);
+                        mealTimeouts.current.push(timeoutId);
+                    }
+                }
+            }
+        });
+    
+        // Schedule Hydration Reminders
+        if (notificationSettings.hydrationReminders && plan.userData) {
+            const waterIntake = ((plan.userData.weight * 35) / 1000).toFixed(1);
+            const hydrationMessage = `Lembrete de Hidratação: Não se esqueça de beber água para atingir sua meta de ${waterIntake} litros!`;
+            
+            hydrationInterval.current = setInterval(() => {
+                showNotification('Mantenha-se Hidratado!', hydrationMessage);
+            }, notificationSettings.hydrationFrequency * 60 * 1000);
+        }
+    };
+
+    // --- NAVIGATION ---
+    const handleNavigateToView = (view: AppView) => {
+        setAppView(view);
+        if (view === 'dietCreator') handleResetDietCreator(false);
+    };
+    
+    // --- DIET CREATION LOGIC ---
+    const handleGoToMacroConfig = (data: UserData, calories: number, selectedGoal: Goal) => {
+        setUserDataForm(data);
+        setTargetCalories(calories);
+        setGoal(selectedGoal);
+        setStep('macroConfig');
+    };
+
+    const handleGoToPlanner = (targets: MacroTargets) => {
+        setMacroTargets(targets);
+        setStep('planner');
+    };
+
+    const handleGenerateDiet = (plannerData: { mode: 'manual', data: Meal[] } | { mode: 'ai', data: AiMealConfig[] }) => {
+        setPlannerMode(plannerData.mode);
+        if (plannerData.mode === 'manual') {
+            setMeals(plannerData.data);
+        } else {
+            setAiMealConfig(plannerData.data);
+        }
+        setStep('result');
+    };
+    
+    const handlePlanDietDirectly = (data: UserData, calories: number, selectedGoal: Goal) => {
+        setUserDataForm(data);
+        setTargetCalories(calories);
+        setGoal(selectedGoal);
+        setMacroTargets(defaultTargets);
+        // This is the correct flow: directly to the planner.
+        setStep('planner');
+    };
+    
+    const handleResetDietCreator = (fullReset = true) => {
+        setStep('userInfo');
+        if (fullReset) {
+            setUserDataForm(null);
+        }
+        setDietPlan(null);
+        setError(null);
+        setIsLoading(false);
+        setMeals([]);
+        setAiMealConfig([]);
+        setBloodTestFile(null);
+        clearAllNotifications();
+    };
+
+    const handleSaveDiet = (plan: DietPlan) => {
+        if (!savedDiets.some(d => d.id === plan.id)) {
+            setSavedDiets(prev => [plan, ...prev]);
+        }
+    };
+    
+    const handleUpdateSavedDiet = (plan: DietPlan) => {
+        setSavedDiets(prev => prev.map(d => d.id === plan.id ? plan : d));
+    }
+    
+    const handleAddSavedDiet = (plan: DietPlan) => {
+         setSavedDiets(prev => [plan, ...prev]);
+    }
+
+    const handleDeleteDiet = (id: string) => {
+        setSavedDiets(prev => prev.filter(d => d.id !== id));
+    };
+
+    // --- PROGRESS DIARY LOGIC ---
+    const handleAddProgressEntry = (entry: Omit<ProgressEntry, 'id'>) => {
+        const newEntry: ProgressEntry = {
+            id: Date.now().toString(),
+            ...entry
+        };
+        setProgressHistory(prev => [...prev, newEntry]);
+    };
+    
+    const handleDeleteProgressEntry = (id: string) => {
+        setProgressHistory(prev => prev.filter(entry => entry.id !== id));
+    };
+    
+     const handlePurchaseFile = (fileId: string) => {
+        if (!currentUser) return;
+
+        const updatedUser = {
+            ...currentUser,
+            purchasedFileIds: [...(currentUser.purchasedFileIds || []), fileId]
+        };
+        handleSaveProfile(updatedUser);
+    };
+
+    const renderDietCreator = () => {
+        switch (step) {
+            case 'userInfo':
+                return <Step1UserInfo 
+                    onGoToMacroConfig={handleGoToMacroConfig} 
+                    onPlanDietDirectly={handlePlanDietDirectly}
+                    bloodTestFile={bloodTestFile}
+                    onFileUpload={setBloodTestFile}
+                    onFileRemove={() => setBloodTestFile(null)}
+                />;
+            case 'macroConfig':
+                if (!userDataForm || !goal) return null;
+                return <Step2MacroConfig userData={userDataForm} targetCalories={targetCalories} onNext={handleGoToPlanner} onBack={() => setStep('userInfo')} />;
+            case 'planner':
+                return <Step3MealPlanner 
+                    onNext={handleGenerateDiet} 
+                    onBack={() => setStep('macroConfig')} 
+                    initialMeals={meals}
+                    initialAiMeals={aiMealConfig}
+                    initialMode={plannerMode}
+                />;
+            case 'result':
+                if (!userDataForm || !goal || !macroTargets) return null;
+                return <Step4DietResult
+                    userData={userDataForm}
+                    targetCalories={targetCalories}
+                    goal={goal}
+                    macroTargets={macroTargets}
+                    plannerConfig={plannerMode === 'manual' ? { mode: 'manual', data: meals } : { mode: 'ai', data: aiMealConfig }}
+                    bloodTestFile={bloodTestFile}
+                    dietPlan={dietPlan}
+                    setDietPlan={setDietPlan}
+                    isLoading={isLoading}
+                    setIsLoading={setIsLoading}
+                    error={error}
+                    setError={setError}
+                    onReset={() => handleResetDietCreator(true)}
+                    onBack={() => setStep('planner')}
+                    onSaveDiet={handleSaveDiet}
+                    savedDietIds={savedDiets.map(d => d.id)}
+                />;
+            default:
+                return null;
+        }
+    };
+    
+    const renderMainView = () => {
+        switch(appView) {
+            case 'dietCreator':
+                return renderDietCreator();
+            case 'savedDiets':
+                return <SavedDiets 
+                    diets={savedDiets} 
+                    onDelete={handleDeleteDiet} 
+                    onUpdateDiet={handleUpdateSavedDiet}
+                    onAddDiet={handleAddSavedDiet}
+                    onBack={() => handleNavigateToView('dietCreator')}
+                    bloodTestFile={bloodTestFile}
+                 />;
+            case 'progressDiary':
+                return <ProgressDiary 
+                    progressHistory={progressHistory} 
+                    onAddEntry={handleAddProgressEntry}
+                    onDeleteEntry={handleDeleteProgressEntry}
+                />;
+             case 'ebooks':
+                if (!currentUser) return null;
+                return <UserFiles
+                    user={currentUser}
+                    onPurchaseFile={handlePurchaseFile}
+                    onBack={() => handleNavigateToView('dietCreator')}
+                />;
+            case 'profile':
+                if (!currentUser) return null;
+                return <UserProfile 
+                    user={currentUser} 
+                    onBack={() => handleNavigateToView('dietCreator')} 
+                    onSave={handleSaveProfile}
+                    onLogout={handleLogout}
+                    onNavigateToNotificationSettings={() => handleNavigateToView('notificationSettings')}
+                    onNavigateToUserFiles={() => handleNavigateToView('ebooks')}
+                 />;
+            case 'notificationSettings':
+                return <NotificationSettingsComponent
+                    settings={notificationSettings}
+                    onSettingsChange={setNotificationSettings}
+                    onBack={() => handleNavigateToView('profile')}
+                />;
+            case 'adminPanel':
+                if (!currentUser || currentUser.role !== 'admin') {
+                    handleNavigateToView('dietCreator');
+                    return null;
+                }
+                return <AdminPanel onBack={() => handleNavigateToView('dietCreator')} adminUser={currentUser} />;
+            default:
+                return renderDietCreator();
+        }
+    };
+
+    if (!currentUser) {
+        return (
+            <main className="container mx-auto p-4 md:p-8 max-w-xl">
+                {authView === 'login' && (
+                    <Login
+                        onLogin={handleLogin}
+                        onNavigateToRegister={() => setAuthView('register')}
+                    />
+                )}
+                {authView === 'register' && (
+                    <Register
+                        onRegister={handleRegister}
+                        onRegisterSuccess={() => setAuthView('login')}
+                        onNavigateToLogin={() => setAuthView('login')}
+                    />
+                )}
+            </main>
+        );
+    }
+    
+    const mainContainerClass = appView === 'adminPanel'
+        ? 'container mx-auto p-4 md:p-8 flex-1 w-full max-w-screen-xl'
+        : 'container mx-auto p-4 md:p-8 flex-1 w-full max-w-4xl';
+
+    return (
+        <div className="min-h-screen flex flex-col">
+            <header className="bg-slate-900/80 backdrop-blur-sm sticky top-0 z-40 border-b border-slate-700">
+                <div className="container mx-auto p-4 flex justify-between items-center">
+                    <div
+                        className="flex items-center gap-3 cursor-pointer"
+                        onClick={() => handleNavigateToView('dietCreator')}
+                    >
+                        <BrainCircuit className="w-8 h-8 transition-colors text-cyan-400" />
+                        <h1 className="text-2xl font-bold text-white tracking-tight">NUTRIFLOW <span className="text-cyan-400">IA</span></h1>
                     </div>
-                  )}
-                </button>
-              </div>
-            </nav>
-          </header>
-          <main className="flex-1 container mx-auto p-4 sm:p-6 md:p-8 flex items-center justify-center">
-            <div className="w-full max-w-4xl">
-              {renderContent()}
-            </div>
-          </main>
-          <ChatBot />
-        </>
-      ) : (
-         <main className="flex-1 flex items-center justify-center p-4">
-            <div className="w-full max-w-md">
-              {renderAuth()}
-            </div>
-          </main>
-      )}
-    </div>
-  );
+                    <nav className="flex items-center gap-1 md:gap-2">
+                        {currentUser.role === 'admin' && (
+                             <button
+                                onClick={() => handleNavigateToView('adminPanel')}
+                                className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'adminPanel' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                                title="Painel Admin"
+                            >
+                                <ShieldCheck className="w-6 h-6" />
+                                <span className="hidden md:inline">Painel Admin</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={() => handleNavigateToView('savedDiets')}
+                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'savedDiets' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            title="Dietas Salvas"
+                        >
+                            <Archive className="w-6 h-6" />
+                            <span className="hidden md:inline">Minhas Dietas</span>
+                        </button>
+                         <button
+                            onClick={() => handleNavigateToView('progressDiary')}
+                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'progressDiary' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            title="Diário de Progresso"
+                        >
+                            <TrendingUpIcon className="w-6 h-6" />
+                            <span className="hidden md:inline">Progresso</span>
+                        </button>
+                        <button
+                            onClick={() => handleNavigateToView('ebooks')}
+                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'ebooks' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            title="E-books & Arquivos"
+                        >
+                            <BookOpen className="w-6 h-6" />
+                            <span className="hidden md:inline">E-books & Arquivos</span>
+                        </button>
+                         <button
+                            onClick={() => handleNavigateToView('notificationSettings')}
+                            className={`p-2 rounded-full transition-colors ${appView === 'notificationSettings' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            title="Notificações"
+                        >
+                            <NotificationIcon className="w-6 h-6" />
+                        </button>
+                        <button
+                            onClick={() => handleNavigateToView('profile')}
+                            className={`p-2 rounded-full transition-colors ${appView === 'profile' || appView === 'notificationSettings' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            title="Meu Perfil"
+                        >
+                            <ProfileIcon className="w-6 h-6" />
+                        </button>
+                    </nav>
+                </div>
+            </header>
+
+            <main className={mainContainerClass}>
+                {renderMainView()}
+            </main>
+            
+            <ChatBot />
+
+            <footer className="text-center p-4 text-slate-500 text-sm">
+                <p>&copy; {new Date().getFullYear()} NUTRIFLOW IA. Todos os direitos reservados.</p>
+            </footer>
+        </div>
+    );
 };
 
-// FIX: Add default export for the App component.
 export default App;

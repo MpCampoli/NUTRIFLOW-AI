@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef } from 'react';
 import { Meal, AiMealConfig } from '../types';
 import { foodOptions } from '../constants';
@@ -18,9 +16,9 @@ interface Props {
 }
 
 const defaultMeals: Meal[] = [
-  { id: '1', name: 'Café da Manhã', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements: [], customFoods: [] },
-  { id: '2', name: 'Almoço', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements: [], customFoods: [] },
-  { id: '3', name: 'Jantar', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements: [], customFoods: [] },
+  { id: '1', name: 'Café da Manhã', time: '08:00', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements: [], customFoods: [] },
+  { id: '2', name: 'Almoço', time: '12:30', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements: [], customFoods: [] },
+  { id: '3', name: 'Jantar', time: '19:30', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements: [], customFoods: [] },
 ];
 
 const defaultAiMeals: AiMealConfig[] = [
@@ -94,15 +92,9 @@ const Step3MealPlanner: React.FC<Props> = ({ onNext, onBack, initialMeals, initi
 
 
   // --- Manual Mode Functions ---
-  const addMeal = (index?: number) => {
-    const newMeal: Meal = { id: Date.now().toString(), name: `Refeição Extra`, carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements:[], customFoods: [] };
-    if (index !== undefined) {
-        const newMeals = [...meals];
-        newMeals.splice(index + 1, 0, newMeal);
-        setMeals(newMeals);
-    } else {
-        setMeals([...meals, newMeal]);
-    }
+  const addMeal = () => {
+    const newMeal: Meal = { id: Date.now().toString(), name: `Nova Refeição`, time: '21:00', carbohydrates: [], proteins: [], fats: [], fruits: [], vegetables: [], supplements:[], customFoods: [] };
+    setMeals([...meals, newMeal]);
   };
   const removeMeal = (id: string) => setMeals(meals.filter(meal => meal.id !== id));
   const updateMeal = <K extends keyof Meal>(id: string, key: K, value: Meal[K]) => {
@@ -171,73 +163,73 @@ const Step3MealPlanner: React.FC<Props> = ({ onNext, onBack, initialMeals, initi
       {mode === 'manual' ? (
         // --- MANUAL MODE UI ---
         <div>
-          <p className="text-center text-slate-400 mb-8 -mt-4">Selecione os alimentos que você gosta. Se não encontrar algo, clique em "+ Adicionar" para incluir um item personalizado.</p>
+          <p className="text-center text-slate-400 mb-8 -mt-4">Defina suas refeições, horários e selecione os alimentos que você gosta.</p>
           <div className="space-y-4 mb-8">
-            {meals.map((meal, index) => (
-              <React.Fragment key={meal.id}>
-                <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-700">
-                    <div className="flex justify-between items-center mb-4">
-                    <input
-                        type="text"
-                        value={meal.name}
-                        onChange={(e) => updateMeal(meal.id, 'name', e.target.value)}
-                        className="text-xl font-bold text-white bg-transparent focus:outline-none focus:border-b border-slate-600"
-                    />
-                    {meals.length > 1 && <button onClick={() => removeMeal(meal.id)} className="text-slate-500 hover:text-red-400 transition-colors">
-                        <Trash2 className="w-5 h-5" />
-                    </button>}
-                    </div>
-                    <div className="space-y-4">
-                        <FoodSelector category="carbohydrates" selected={meal.carbohydrates} onChange={(s) => updateMeal(meal.id, 'carbohydrates', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()} />
-                        <FoodSelector category="proteins" selected={meal.proteins} onChange={(s) => updateMeal(meal.id, 'proteins', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
-                        <FoodSelector category="fats" selected={meal.fats} onChange={(s) => updateMeal(meal.id, 'fats', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
-                        <FoodSelector category="fruits" selected={meal.fruits} onChange={(s) => updateMeal(meal.id, 'fruits', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
-                        <FoodSelector category="vegetables" selected={meal.vegetables} onChange={(s) => updateMeal(meal.id, 'vegetables', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
-                        <FoodSelector category="supplements" selected={meal.supplements} onChange={(s) => updateMeal(meal.id, 'supplements', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
-                    </div>
-                    <div className="mt-6 border-t border-slate-700 pt-4">
-                        <h4 className="text-md font-semibold text-slate-300 mb-2">Adicionar Alimento Personalizado</h4>
-                        <div className="flex items-center gap-2">
-                            <input
-                            type="text"
-                            // FIX: The ref callback should not return a value. Wrap the assignment in curly braces.
-                            ref={el => { customInputRefs.current[meal.id] = el; }}
-                            value={customFoodInput[meal.id] || ''}
-                            onChange={(e) => handleCustomInputChange(meal.id, e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && addCustomFood(meal.id)}
-                            placeholder="Ex: 1 bombom, 1 fatia de bolo"
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg p-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
-                            />
-                            <button onClick={() => addCustomFood(meal.id)} className="p-2.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition-colors">
-                                <Send className="w-5 h-5" />
-                            </button>
-                        </div>
-                        {meal.customFoods.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-3">
-                                {meal.customFoods.map((food, index) => (
-                                <span key={index} className="flex items-center gap-2 bg-yellow-400/20 text-yellow-300 text-sm font-medium px-2.5 py-1 rounded-full">
-                                    {food}
-                                    <button onClick={() => removeCustomFood(meal.id, food)} className="text-yellow-400 hover:text-white">
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </span>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-                 {index < meals.length - 1 && (
-                    <div className="flex justify-center">
-                        <button onClick={() => addMeal(index)} className="flex items-center gap-2 text-slate-500 hover:text-cyan-400 transition-colors text-sm font-semibold" title="Adicionar refeição intermediária">
-                            <PlusCircle className="w-5 h-5" /> Adicionar Refeição
-                        </button>
-                    </div>
-                )}
-              </React.Fragment>
+            {meals.map((meal) => (
+              <div key={meal.id} className="bg-slate-900/50 p-6 rounded-xl border border-slate-700">
+                  <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                      <input
+                          type="text"
+                          value={meal.name}
+                          onChange={(e) => updateMeal(meal.id, 'name', e.target.value)}
+                          className="flex-1 w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
+                          placeholder="Nome da Refeição"
+                      />
+                      <div className="relative w-full sm:w-auto">
+                         <Clock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
+                          <input
+                              type="time"
+                              value={meal.time}
+                              onChange={(e) => updateMeal(meal.id, 'time', e.target.value)}
+                              className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
+                          />
+                      </div>
+                      {meals.length > 1 && <button onClick={() => removeMeal(meal.id)} className="p-2 text-slate-500 hover:text-red-400 transition-colors self-end sm:self-center">
+                          <Trash2 className="w-5 h-5" />
+                      </button>}
+                  </div>
+                  <div className="space-y-4 border-t border-slate-700 pt-4">
+                      <FoodSelector category="carbohydrates" selected={meal.carbohydrates} onChange={(s) => updateMeal(meal.id, 'carbohydrates', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()} />
+                      <FoodSelector category="proteins" selected={meal.proteins} onChange={(s) => updateMeal(meal.id, 'proteins', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
+                      <FoodSelector category="fats" selected={meal.fats} onChange={(s) => updateMeal(meal.id, 'fats', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
+                      <FoodSelector category="fruits" selected={meal.fruits} onChange={(s) => updateMeal(meal.id, 'fruits', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
+                      <FoodSelector category="vegetables" selected={meal.vegetables} onChange={(s) => updateMeal(meal.id, 'vegetables', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
+                      <FoodSelector category="supplements" selected={meal.supplements} onChange={(s) => updateMeal(meal.id, 'supplements', s)} onAddCustomClick={() => customInputRefs.current[meal.id]?.focus()}/>
+                  </div>
+                  <div className="mt-6 border-t border-slate-700 pt-4">
+                      <h4 className="text-md font-semibold text-slate-300 mb-2">Adicionar Alimento Personalizado</h4>
+                      <div className="flex items-center gap-2">
+                          <input
+                          type="text"
+                          ref={el => { customInputRefs.current[meal.id] = el; }}
+                          value={customFoodInput[meal.id] || ''}
+                          onChange={(e) => handleCustomInputChange(meal.id, e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addCustomFood(meal.id)}
+                          placeholder="Ex: 1 bombom, 1 fatia de bolo"
+                          className="w-full bg-slate-700 border border-slate-600 rounded-lg p-2.5 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
+                          />
+                          <button onClick={() => addCustomFood(meal.id)} className="p-2.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition-colors">
+                              <Send className="w-5 h-5" />
+                          </button>
+                      </div>
+                      {meal.customFoods.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                              {meal.customFoods.map((food, index) => (
+                              <span key={index} className="flex items-center gap-2 bg-yellow-400/20 text-yellow-300 text-sm font-medium px-2.5 py-1 rounded-full">
+                                  {food}
+                                  <button onClick={() => removeCustomFood(meal.id, food)} className="text-yellow-400 hover:text-white">
+                                      <X className="w-4 h-4" />
+                                  </button>
+                              </span>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+              </div>
             ))}
           </div>
-          <button type="button" onClick={() => addMeal()} className="w-full flex items-center justify-center gap-2 border-2 border-slate-600 hover:border-cyan-500 text-slate-400 hover:text-cyan-400 font-semibold py-3 px-4 rounded-lg transition-all mb-4">
-            <PlusCircle className="w-5 h-5" /> Adicionar Refeição (no final)
+          <button type="button" onClick={addMeal} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-600 hover:border-cyan-500 text-slate-400 hover:text-cyan-400 font-semibold py-3 px-4 rounded-lg transition-all mb-4">
+            <PlusCircle className="w-5 h-5" /> Adicionar Refeição
           </button>
         </div>
       ) : (
@@ -247,31 +239,29 @@ const Step3MealPlanner: React.FC<Props> = ({ onNext, onBack, initialMeals, initi
             <div className="space-y-4 mb-6">
                 {aiMeals.map(meal => (
                     <div key={meal.id} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="flex-1 w-full space-y-2">
-                             <input
-                                type="text"
-                                value={meal.name}
-                                onChange={e => updateAiMeal(meal.id, 'name', e.target.value)}
-                                placeholder="Nome da Refeição"
-                                className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
-                            />
-                            <div className="relative">
-                               <Clock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
-                                <input
-                                    type="time"
-                                    value={meal.time}
-                                    onChange={e => updateAiMeal(meal.id, 'time', e.target.value)}
-                                    className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
-                                />
-                            </div>
-                        </div>
+                        <input
+                           type="text"
+                           value={meal.name}
+                           onChange={e => updateAiMeal(meal.id, 'name', e.target.value)}
+                           placeholder="Nome da Refeição"
+                           className="flex-1 w-full bg-slate-700 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
+                       />
+                       <div className="relative w-full sm:w-auto">
+                          <Clock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
+                           <input
+                               type="time"
+                               value={meal.time}
+                               onChange={e => updateAiMeal(meal.id, 'time', e.target.value)}
+                               className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 pl-10 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition"
+                           />
+                       </div>
                         {aiMeals.length > 1 && <button onClick={() => removeAiMeal(meal.id)} className="p-2 text-slate-500 hover:text-red-400 transition-colors self-end sm:self-center">
                             <Trash2 className="w-5 h-5" />
                         </button>}
                     </div>
                 ))}
             </div>
-            <button type="button" onClick={addAiMeal} className="w-full flex items-center justify-center gap-2 border-2 border-slate-600 hover:border-cyan-500 text-slate-400 hover:text-cyan-400 font-semibold py-3 px-4 rounded-lg transition-all mb-4">
+            <button type="button" onClick={addAiMeal} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-600 hover:border-cyan-500 text-slate-400 hover:text-cyan-400 font-semibold py-3 px-4 rounded-lg transition-all mb-4">
                 <PlusCircle className="w-5 h-5" /> Adicionar Refeição
             </button>
         </div>

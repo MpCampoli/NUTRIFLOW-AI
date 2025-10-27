@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { getChatbotResponse } from '../services/geminiService';
 import { MessageSquare, Send, X, Bot } from './icons/ChatIcons';
@@ -99,7 +100,8 @@ const ChatBot: React.FC = () => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Pergunte algo..."
-                className="w-full bg-transparent p-3 text-slate-200 focus:outline-none"
+                className="w-full bg-transparent p-3 text-slate-200 focus:outline-none disabled:cursor-not-allowed"
+                disabled={isLoading}
               />
               <button onClick={handleSend} className="p-3 text-cyan-400 hover:text-cyan-300 disabled:text-slate-500" disabled={isLoading}>
                 <Send className="w-6 h-6" />

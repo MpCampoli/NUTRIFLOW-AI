@@ -13,7 +13,9 @@
     "@google/genai": "^1.26.0",
     "react": "^19.2.0",
     "jspdf": "latest",
-    "html2canvas": "latest"
+    "html2canvas": "latest",
+    "lucide-react": "^0.548.0",
+    "firebase": "^12.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
