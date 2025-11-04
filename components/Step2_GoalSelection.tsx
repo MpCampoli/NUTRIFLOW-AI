@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft } from './icons/ArrowLeft';
 import { UserData, MacroTargets } from '../types';
@@ -59,17 +56,17 @@ const Step2_MacroConfig: React.FC<Props> = ({ userData, targetCalories, onNext, 
     }
 
   return (
-    <div className="bg-slate-800 p-8 rounded-2xl shadow-lg border border-slate-700 animate-fade-in text-center relative">
-       <button onClick={onBack} className="absolute top-6 left-6 text-slate-400 hover:text-cyan-400 transition-colors flex items-center gap-2">
+    <div className="card-style p-8 rounded-2xl shadow-lg animate-fade-in text-center relative">
+       <button onClick={onBack} className="absolute top-6 left-6 text-gray-500 hover:text-accent-green transition-colors flex items-center gap-2">
             <ArrowLeft className="w-5 h-5" />
             Voltar
         </button>
-      <h2 className="text-2xl font-bold text-cyan-400 mb-2 pt-8">Configure seus Macronutrientes</h2>
-      <p className="text-slate-400 mb-8">Ajuste as metas de proteína e gordura. Os carboidratos serão calculados automaticamente para atingir sua meta calórica de <strong className="text-white">{Math.round(targetCalories)} kcal</strong>.</p>
+      <h2 className="text-2xl font-bold text-accent-green mb-2 pt-8">Configure seus Macronutrientes</h2>
+      <p className="text-gray-600 mb-8">Ajuste as metas de proteína e gordura. Os carboidratos serão calculados automaticamente para atingir sua meta calórica de <strong className="text-primary-dark">{Math.round(targetCalories)} kcal</strong>.</p>
       
       <div className="space-y-6 mb-8 text-left">
           <div>
-              <label htmlFor="protein" className="block text-sm font-medium text-slate-300 mb-2">Proteína ({proteinPerKg.toFixed(1)} g/kg)</label>
+              <label htmlFor="protein" className="block text-sm font-medium text-gray-700 mb-2">Proteína ({proteinPerKg.toFixed(1)} g/kg)</label>
               <input 
                 type="range" 
                 id="protein"
@@ -78,11 +75,11 @@ const Step2_MacroConfig: React.FC<Props> = ({ userData, targetCalories, onNext, 
                 step="0.1" 
                 value={proteinPerKg}
                 onChange={(e) => setProteinPerKg(Number(e.target.value))}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-500"
               />
           </div>
           <div>
-              <label htmlFor="fat" className="block text-sm font-medium text-slate-300 mb-2">Gordura ({fatPerKg.toFixed(1)} g/kg)</label>
+              <label htmlFor="fat" className="block text-sm font-medium text-gray-700 mb-2">Gordura ({fatPerKg.toFixed(1)} g/kg)</label>
               <input 
                 type="range" 
                 id="fat"
@@ -91,25 +88,25 @@ const Step2_MacroConfig: React.FC<Props> = ({ userData, targetCalories, onNext, 
                 step="0.1" 
                 value={fatPerKg}
                 onChange={(e) => setFatPerKg(Number(e.target.value))}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
               />
           </div>
       </div>
 
-      <div className="p-6 bg-slate-900/50 rounded-xl border border-slate-700 mb-8">
-            <h3 className="text-xl font-semibold mb-4 text-white text-center">Metas Diárias Totais</h3>
+      <div className="p-6 bg-primary-light rounded-xl border border-ui-border mb-8">
+            <h3 className="text-xl font-semibold mb-4 text-primary-dark text-center">Metas Diárias Totais</h3>
             <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 p-4 rounded-xl bg-slate-800 flex items-center gap-4">
-                    <div className="p-2 rounded-full bg-red-400"><Drumstick className="w-6 h-6 text-slate-900"/></div>
-                    <div><p className="text-sm text-slate-400">Proteínas</p><p className="text-xl font-bold text-white">{Math.round(totalProtein)} g</p></div>
+                <div className="flex-1 p-4 rounded-xl bg-ui-bg-opaque flex items-center gap-4">
+                    <div className="p-2 rounded-full bg-red-400"><Drumstick className="w-6 h-6 text-white"/></div>
+                    <div><p className="text-sm text-gray-600">Proteínas</p><p className="text-xl font-bold text-primary-dark">{Math.round(totalProtein)} g</p></div>
                 </div>
-                 <div className="flex-1 p-4 rounded-xl bg-slate-800 flex items-center gap-4">
-                    <div className="p-2 rounded-full bg-cyan-400"><Activity className="w-6 h-6 text-slate-900"/></div>
-                    <div><p className="text-sm text-slate-400">Carboidratos</p><p className="text-xl font-bold text-white">{Math.round(totalCarbs)} g</p></div>
+                 <div className="flex-1 p-4 rounded-xl bg-ui-bg-opaque flex items-center gap-4">
+                    <div className="p-2 rounded-full bg-accent-green"><Activity className="w-6 h-6 text-white"/></div>
+                    <div><p className="text-sm text-gray-600">Carboidratos</p><p className="text-xl font-bold text-primary-dark">{Math.round(totalCarbs)} g</p></div>
                 </div>
-                 <div className="flex-1 p-4 rounded-xl bg-slate-800 flex items-center gap-4">
-                    <div className="p-2 rounded-full bg-yellow-400"><Zap className="w-6 h-6 text-slate-900"/></div>
-                    <div><p className="text-sm text-slate-400">Gorduras</p><p className="text-xl font-bold text-white">{Math.round(totalFat)} g</p></div>
+                 <div className="flex-1 p-4 rounded-xl bg-ui-bg-opaque flex items-center gap-4">
+                    <div className="p-2 rounded-full bg-yellow-400"><Zap className="w-6 h-6 text-white"/></div>
+                    <div><p className="text-sm text-gray-600">Gorduras</p><p className="text-xl font-bold text-primary-dark">{Math.round(totalFat)} g</p></div>
                 </div>
             </div>
       </div>
@@ -117,13 +114,13 @@ const Step2_MacroConfig: React.FC<Props> = ({ userData, targetCalories, onNext, 
             <button
                 type="button"
                 onClick={resetDefaults}
-                className="w-full border-2 border-slate-600 hover:border-cyan-500 text-slate-300 hover:text-cyan-400 font-semibold py-3 px-4 rounded-lg transition-all"
+                className="w-full border-2 border-ui-border hover:border-accent-green text-gray-700 hover:text-accent-green font-semibold py-3 px-4 rounded-lg transition-all"
             >
                 Usar Padrão
             </button>
             <button 
                 onClick={handleSubmit} 
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105"
+                className="w-full bg-accent-green hover:bg-accent-green-dark text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-105"
             >
                 Planejar Refeições
             </button>

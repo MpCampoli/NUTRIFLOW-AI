@@ -4,10 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NUTRIFLOW IA</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #F0FAF8; /* Fallback color */
+        background-image: url('/fundo_ia.png');
+        background-size: cover;
+        background-attachment: fixed;
+        background-position: center;
+      }
+      /* Custom scrollbar for better aesthetics */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.5);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #00A99D;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #00877E;
+      }
+      /* Class for frosted glass effect */
+      .card-style {
+        background-color: rgba(255, 255, 255, 0.8) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(224, 235, 232, 0.5) !important;
+      }
+    </style>
     <script>
       tailwind.config = {
         theme: {
@@ -15,6 +46,15 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
             },
+            colors: {
+              'primary-light': '#F0FAF8',
+              'primary-dark': '#1a2e29',
+              'accent-green': '#00A99D',
+              'accent-green-dark': '#00877E',
+              'ui-bg': 'rgba(255, 255, 255, 0.8)',
+              'ui-bg-opaque': '#FFFFFF',
+              'ui-border': '#E0EBE8',
+            }
           }
         }
       }
@@ -34,7 +74,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-900 text-slate-100 font-sans">
+  <body class="text-primary-dark font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

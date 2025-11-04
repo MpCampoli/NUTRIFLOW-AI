@@ -14,7 +14,6 @@ import UserFiles from './components/UserFiles';
 import ProgressDiary from './components/ProgressDiary';
 import AdminPanel from './components/admin/AdminPanel';
 
-import { BrainCircuit } from './components/icons/BrainCircuit';
 import { Archive } from './components/icons/Archive';
 import { ProfileIcon, NotificationIcon, BookOpen, TrendingUpIcon, ShieldCheck } from './components/icons/AppBarIcons';
 
@@ -524,20 +523,19 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col">
-            <header className="bg-slate-900/80 backdrop-blur-sm sticky top-0 z-40 border-b border-slate-700">
+            <header className="bg-ui-bg/80 backdrop-blur-md sticky top-0 z-40 border-b border-ui-border shadow-sm">
                 <div className="container mx-auto p-4 flex justify-between items-center">
                     <div
                         className="flex items-center gap-3 cursor-pointer"
                         onClick={() => handleNavigateToView('dietCreator')}
                     >
-                        <BrainCircuit className="w-8 h-8 transition-colors text-cyan-400" />
-                        <h1 className="text-2xl font-bold text-white tracking-tight">NUTRIFLOW <span className="text-cyan-400">IA</span></h1>
+                       <img src="/logo_completo.png" alt="NutriFlow AI Logo" className="h-10" />
                     </div>
                     <nav className="flex items-center gap-1 md:gap-2">
                         {currentUser.role === 'admin' && (
                              <button
                                 onClick={() => handleNavigateToView('adminPanel')}
-                                className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'adminPanel' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                                className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'adminPanel' ? 'text-accent-green bg-accent-green/10' : 'text-gray-600 hover:bg-accent-green/10 hover:text-accent-green'}`}
                                 title="Painel Admin"
                             >
                                 <ShieldCheck className="w-6 h-6" />
@@ -546,7 +544,7 @@ const App: React.FC = () => {
                         )}
                         <button
                             onClick={() => handleNavigateToView('savedDiets')}
-                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'savedDiets' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'savedDiets' ? 'text-accent-green bg-accent-green/10' : 'text-gray-600 hover:bg-accent-green/10 hover:text-accent-green'}`}
                             title="Dietas Salvas"
                         >
                             <Archive className="w-6 h-6" />
@@ -554,7 +552,7 @@ const App: React.FC = () => {
                         </button>
                          <button
                             onClick={() => handleNavigateToView('progressDiary')}
-                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'progressDiary' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'progressDiary' ? 'text-accent-green bg-accent-green/10' : 'text-gray-600 hover:bg-accent-green/10 hover:text-accent-green'}`}
                             title="Diário de Progresso"
                         >
                             <TrendingUpIcon className="w-6 h-6" />
@@ -562,7 +560,7 @@ const App: React.FC = () => {
                         </button>
                         <button
                             onClick={() => handleNavigateToView('ebooks')}
-                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'ebooks' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            className={`flex items-center gap-2 font-semibold p-2 rounded-lg transition-colors ${appView === 'ebooks' ? 'text-accent-green bg-accent-green/10' : 'text-gray-600 hover:bg-accent-green/10 hover:text-accent-green'}`}
                             title="E-books & Arquivos"
                         >
                             <BookOpen className="w-6 h-6" />
@@ -570,14 +568,14 @@ const App: React.FC = () => {
                         </button>
                          <button
                             onClick={() => handleNavigateToView('notificationSettings')}
-                            className={`p-2 rounded-full transition-colors ${appView === 'notificationSettings' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            className={`p-2 rounded-full transition-colors ${appView === 'notificationSettings' ? 'text-accent-green bg-accent-green/10' : 'text-gray-600 hover:bg-accent-green/10 hover:text-accent-green'}`}
                             title="Notificações"
                         >
                             <NotificationIcon className="w-6 h-6" />
                         </button>
                         <button
                             onClick={() => handleNavigateToView('profile')}
-                            className={`p-2 rounded-full transition-colors ${appView === 'profile' || appView === 'notificationSettings' ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-700'}`}
+                            className={`p-2 rounded-full transition-colors ${appView === 'profile' || appView === 'notificationSettings' ? 'text-accent-green bg-accent-green/10' : 'text-gray-600 hover:bg-accent-green/10 hover:text-accent-green'}`}
                             title="Meu Perfil"
                         >
                             <ProfileIcon className="w-6 h-6" />
@@ -592,7 +590,7 @@ const App: React.FC = () => {
             
             <ChatBot />
 
-            <footer className="text-center p-4 text-slate-500 text-sm">
+            <footer className="text-center p-4 text-gray-500 text-sm">
                 <p>&copy; {new Date().getFullYear()} NUTRIFLOW IA. Todos os direitos reservados.</p>
             </footer>
         </div>
